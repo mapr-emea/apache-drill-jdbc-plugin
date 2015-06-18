@@ -26,7 +26,7 @@ import org.apache.drill.exec.ops.FragmentContext;
 import org.apache.drill.exec.physical.base.GroupScan;
 import org.apache.drill.exec.physical.impl.BatchCreator;
 import org.apache.drill.exec.physical.impl.ScanBatch;
-//import org.apache.drill.exec.record.CloseableRecordBatch;
+import org.apache.drill.exec.record.CloseableRecordBatch;
 import org.apache.drill.exec.record.RecordBatch;
 import org.apache.drill.exec.store.RecordReader;
 import org.apache.drill.exec.store.mpjdbc.MPJdbcSchemaSubScan;
@@ -36,7 +36,7 @@ import com.google.common.collect.Lists;
 
 public class MPJdbcBatchCreator implements BatchCreator<MPJdbcSubScan> {
   @Override
-  public RecordBatch getBatch(FragmentContext context, MPJdbcSubScan config,
+  public CloseableRecordBatch getBatch(FragmentContext context, MPJdbcSubScan config,
       List<RecordBatch> children) throws ExecutionSetupException {
     Preconditions.checkArgument(children.isEmpty());
     List<RecordReader> readers = Lists.newArrayList();

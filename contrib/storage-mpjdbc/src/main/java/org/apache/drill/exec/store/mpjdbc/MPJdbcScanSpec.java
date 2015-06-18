@@ -17,6 +17,7 @@
  */
 package org.apache.drill.exec.store.mpjdbc;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -59,6 +60,12 @@ public class MPJdbcScanSpec {
     return this.filters;
   }
 
+  public void setFilterString(String value) {
+     if(this.filters == null) {
+        this.filters = new ArrayList<String>();
+     }
+     this.filters.add(value);
+  }
   public String getColumns() {
     return this.columns;
   }

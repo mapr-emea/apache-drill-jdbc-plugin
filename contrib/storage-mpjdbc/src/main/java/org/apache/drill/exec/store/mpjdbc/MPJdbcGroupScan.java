@@ -31,6 +31,7 @@ import org.apache.drill.exec.physical.base.AbstractGroupScan;
 import org.apache.drill.exec.physical.base.GroupScan;
 import org.apache.drill.exec.physical.base.PhysicalOperator;
 import org.apache.drill.exec.physical.base.ScanStats;
+import org.apache.drill.exec.physical.base.ScanStats.GroupScanProperty;
 import org.apache.drill.exec.physical.base.SubScan;
 import org.apache.drill.exec.proto.CoordinationProtos.DrillbitEndpoint;
 import org.apache.drill.exec.store.schedule.CompleteFileWork;
@@ -106,7 +107,7 @@ public class MPJdbcGroupScan extends AbstractGroupScan {
   @Override
   public ScanStats getScanStats() {
     // TODO Auto-generated method stub
-    return ScanStats.TRIVIAL_TABLE;
+    return new ScanStats(GroupScanProperty.NO_EXACT_ROW_COUNT,10000,20,20);
   }
 
   @Override
@@ -178,4 +179,22 @@ public class MPJdbcGroupScan extends AbstractGroupScan {
   public MPJdbcScanSpec getScanSpec() {
     return this.mPJdbcScanSpec;
   }
+
+  public MPJdbcFormatPlugin getStoragePlugin() {
+     return this.plugin;
+  }
+
+  public MPJdbcClient getClient() {
+      return this.plugin.getClient();
+  }
+
+  @Override
+  @JsonIgnore
+  public boolean supportsPartitionFilterPushdown() {
+    return true;
+  }
+
+public List<SchemaPath> getColumns() {
+    return this.columns;
+}
 }

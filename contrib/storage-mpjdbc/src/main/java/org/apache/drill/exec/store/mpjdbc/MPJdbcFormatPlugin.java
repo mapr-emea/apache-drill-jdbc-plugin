@@ -40,8 +40,10 @@ import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.schema.Statistic;
 import org.apache.calcite.schema.Schema.TableType;
 import org.apache.calcite.schema.Function;
+import org.apache.calcite.jdbc.CalciteConnection;
 import org.apache.calcite.linq4j.Extensions;
 import org.apache.drill.common.JSONOptions;
+import org.apache.drill.common.exceptions.DrillRuntimeException;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.logical.FormatPluginConfig;
 import org.apache.drill.common.logical.StoragePluginConfig;
@@ -58,7 +60,7 @@ import org.apache.drill.exec.store.mock.MockGroupScanPOP;
 import org.apache.drill.exec.store.mock.MockStorageEngine;
 import org.apache.drill.exec.store.mock.MockStorageEngineConfig;
 import org.apache.drill.exec.store.mock.MockGroupScanPOP.MockScanEntry;
-import org.apache.drill.exec.store.mpjdbc.MPJdbcClient.OdbcSchema;
+import org.apache.drill.exec.store.mpjdbc.MPJdbcClient.MPJdbcSchema;
 import org.apache.calcite.plan.RelOptRuleCall;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
@@ -75,21 +77,15 @@ public class MPJdbcFormatPlugin extends AbstractStoragePlugin {
       .getLogger(MPJdbcFormatPlugin.class);
 
   private final MPJdbcFormatConfig storageConfig;
-  protected String name = "odbc";
+  protected String name = "jdbc";
   private final DrillbitContext context;
+  private CalciteConnection calConn;
+  private MPJdbcClient client;
 
   public MPJdbcFormatPlugin(MPJdbcFormatConfig storageConfig,
       DrillbitContext context, String name) {
     this.context = context;
     this.storageConfig = storageConfig;
-    ObjectMapper mapper = new ObjectMapper();
-    try {
-      String result = mapper.writeValueAsString(storageConfig);
-      logger.info(result);
-    } catch (JsonProcessingException e) {
-      // TODO Auto-generated catch block
-      e.printStackTrace();
-    }
     this.name = name;
   }
 
@@ -99,14 +95,14 @@ public class MPJdbcFormatPlugin extends AbstractStoragePlugin {
        logger.info("StorageConfig is null");
     }
     MPJdbcClientOptions options = new MPJdbcClientOptions(storageConfig);
-    MPJdbcClient client = MPJdbcCnxnManager.getClient(storageConfig.getUri(),
+    client = MPJdbcCnxnManager.getClient(storageConfig.getUri(),
         options,this);
-    Connection conn = (client == null) ? null : client.getConnection();
     Map<String, Integer> schemas;
     if(client == null) {
       logger.info("Could not create client...");
     }
-    OdbcSchema o = client.getSchema();
+    this.calConn = client.getCalciteConnection();
+    MPJdbcSchema o = client.getSchema();
     SchemaPlus tl = parent.add(this.name, o);
     try {
       schemas = client.getSchemas();
@@ -115,19 +111,18 @@ public class MPJdbcFormatPlugin extends AbstractStoragePlugin {
       while (aiter.hasNext()) {
         Entry<String, Integer> val = aiter.next();
         String catalog = val.getKey();
-        OdbcSchema sc = client.getSchema(catalog);
+        MPJdbcSchema sc = client.getSchema(catalog);
         tl.add(catalog, sc);
       }
     } catch (Exception e) {
       // TODO Auto-generated catch block
-      e.printStackTrace();
+      storageConfig.setEnabled(false);
+      new DrillRuntimeException(e);
     }
   }
 
   @Override
   public MPJdbcFormatConfig getConfig() {
-    logger.info("MPJdbcFormatPlugin:getConfig called");
-    logger.info(storageConfig.toString());
     return storageConfig;
   }
 
@@ -139,20 +134,15 @@ public class MPJdbcFormatPlugin extends AbstractStoragePlugin {
       return this.name;
   }
 
+  public MPJdbcClient getClient() {
+     return this.client;
+  }
+
   @Override
   public boolean supportsRead() {
     return true;
   }
-/*
-  @Override
-  public AbstractGroupScan getPhysicalScan(String userName,JSONOptions selection)
-      throws IOException {
-    MPJdbcScanSpec odbcScanSpec = selection.getListWith(new ObjectMapper(),
-        new TypeReference<MPJdbcScanSpec>() {
-        });
-    return new MPJdbcGroupScan(userName,this, odbcScanSpec, null);
-  }
-  */
+
   @Override
   public AbstractGroupScan getPhysicalScan(String userName,JSONOptions selection,List<SchemaPath> columns)
       throws IOException {
@@ -165,6 +155,9 @@ public class MPJdbcFormatPlugin extends AbstractStoragePlugin {
   @Override
   public Set<StoragePluginOptimizerRule> getOptimizerRules() {
     // TODO Auto-generated method stub
-    return ImmutableSet.of(MPJdbcFilterRule.INSTANCE);
+    return ImmutableSet.of(MPJdbcFilterRule.INSTANCE
+    //,
+    //PJdbcJoinRule.INSTANCE
+    );
   }
 }

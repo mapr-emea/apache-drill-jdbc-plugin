@@ -115,6 +115,8 @@ public class MPJdbcRecordReader extends AbstractRecordReader {
     MPJdbcClient client = MPJdbcCnxnManager.getClient(config.getUri(), options,
         this.plugin);
     conn = client.getConnection();
+    String whereClause = null;
+
     Iterator<MPJdbcScanSpec> iter = scanList.iterator();
     while (iter.hasNext()) {
       MPJdbcScanSpec o = iter.next();
@@ -132,18 +134,32 @@ public class MPJdbcRecordReader extends AbstractRecordReader {
       }
       columns = b.toString();
       filters = o.getFilters();
+      if(filters != null) {
+          StringBuilder whereClauseBuilder = new StringBuilder();
+          Iterator<String> filter_iter = filters.iterator();
+          while (filter_iter.hasNext()) {
+             whereClauseBuilder.append(filter_iter.next());
+          }
+          whereClause = whereClauseBuilder.toString();
+      }
     }
     try {
       statement = conn.createStatement();
-      rec = statement.executeQuery("SELECT " + this.columns + " FROM " + database.trim() + "." + table.trim());
-    } catch (SQLException e) {
+      if(whereClause != null) {
+         String statementStr = "SELECT " + this.columns + " FROM " + database.trim() + "." + table.trim() + " WHERE " + whereClause;
+         rec = statement.executeQuery(statementStr);
+      }
+      else {
+          rec = statement.executeQuery("SELECT " + this.columns + " FROM " + database.trim() + "." + table.trim());
+      }
+      } catch (SQLException e) {
       // TODO Auto-generated catch block
       e.printStackTrace();
     }
   }
 
   @Override
-  public void setup(OutputMutator output) throws ExecutionSetupException {
+  public void setup(OperatorContext context, OutputMutator output) throws ExecutionSetupException {
     try {
       meta = rec.getMetaData();
       col_cnt = meta.getColumnCount();
@@ -329,11 +345,6 @@ public class MPJdbcRecordReader extends AbstractRecordReader {
       // TODO Auto-generated catch block
       throw new ExecutionSetupException(e);
     }
-  }
-
-  @Override
-  public void setOperatorContext(OperatorContext operatorContext) {
-    this.operatorContext = operatorContext;
   }
 
   @Override

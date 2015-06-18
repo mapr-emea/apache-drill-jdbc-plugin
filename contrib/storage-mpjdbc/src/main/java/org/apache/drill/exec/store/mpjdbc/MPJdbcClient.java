@@ -29,6 +29,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.Set;
 
 import org.apache.calcite.schema.Table;
@@ -38,7 +39,9 @@ import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.schema.Statistic;
 import org.apache.calcite.schema.Schema.TableType;
 import org.apache.calcite.schema.Function;
+import org.apache.calcite.jdbc.CalciteConnection;
 import org.apache.calcite.linq4j.Extensions;
+import org.apache.commons.dbcp.BasicDataSource;
 import org.apache.drill.common.exceptions.DrillRuntimeException;
 import org.apache.drill.exec.store.AbstractSchema;
 
@@ -55,14 +58,23 @@ class MPJdbcClient {
     private Connection conn;
     private DatabaseMetaData metadata;
     private String uri;
-    private OdbcSchema defaultSchema;
+    private MPJdbcSchema defaultSchema;
     private MPJdbcFormatPlugin plugin;
     private String plugName;
+    private BasicDataSource dataSource;
+    private CalciteConnection calciteConnection;
 
     public MPJdbcClient(String uri, MPJdbcClientOptions clientOptions,
             MPJdbcFormatPlugin plugin) {
         try {
+            Class.forName("org.apache.calcite.jdbc.Driver");
+            Properties info = new Properties();
+            info.setProperty("lex", "JAVA");
+            Connection connection = DriverManager.getConnection("jdbc:calcite:", info);
+            calciteConnection = connection.unwrap(CalciteConnection.class);
             Class.forName(clientOptions.getDriver()).newInstance();
+            dataSource = new BasicDataSource();
+            dataSource.setUrl(uri);
             this.clientOptions = clientOptions;
 
             String user = this.clientOptions.getUser();
@@ -72,28 +84,38 @@ class MPJdbcClient {
 
             if (user == null || user.length() == 0 || passwd.length() == 0) {
                 logger.info("username, password assumed to be in the uri");
-                this.conn = DriverManager.getConnection(uri);
+                this.conn = dataSource.getConnection();
             } else {
-                this.conn = DriverManager.getConnection(uri, user, passwd);
+              dataSource.setUsername(this.clientOptions.getUser());
+              dataSource.setPassword(this.clientOptions.getPassword());
+              this.conn = dataSource.getConnection();
             }
             this.metadata = this.conn.getMetaData();
             this.plugName = plugin.getName();
         } catch (InstantiationException e) {
             // TODO Auto-generated catch block
-           new DrillRuntimeException(e);
+           throw new DrillRuntimeException(e);
         } catch (IllegalAccessException e) {
             // TODO Auto-generated catch block
-            new DrillRuntimeException(e);
+            throw new DrillRuntimeException(e);
         } catch (ClassNotFoundException e) {
             // TODO Auto-generated catch block
-            new DrillRuntimeException(e);
+            throw new DrillRuntimeException(e);
         } catch (SQLException e) {
-            new DrillRuntimeException(e);
+            throw new DrillRuntimeException(e);
         }
     }
 
     public Connection getConnection() {
         return this.conn;
+    }
+
+    public CalciteConnection getCalciteConnection() {
+       return this.calciteConnection;
+    }
+
+    public BasicDataSource getBasicDataSource() {
+       return this.dataSource;
     }
 
     public Map<String, Integer> getSchemas() {
@@ -108,7 +130,7 @@ class MPJdbcClient {
             }
 
         } catch (SQLException e) {
-            new DrillRuntimeException(e);
+            throw new DrillRuntimeException(e);
         }
         return lst;
     }
@@ -143,7 +165,7 @@ class MPJdbcClient {
                 lst.add(rs.getString(0));
             }
         } catch (SQLException e) {
-            e.printStackTrace();
+            throw new DrillRuntimeException(e);
         }
         return lst;
     }
@@ -158,27 +180,27 @@ class MPJdbcClient {
 
     }
 
-    public OdbcSchema getSchema() {
+    public MPJdbcSchema getSchema() {
         List<String> l = new ArrayList<String>();
         String currentSchema = MPJdbcCnxnManager.getClient(uri, clientOptions,
                 plugin).getCurrentSchema();
-        defaultSchema = new OdbcSchema(currentSchema);
+        defaultSchema = new MPJdbcSchema(currentSchema);
         return defaultSchema;
     }
 
-    public OdbcSchema getSchema(String name) {
+    public MPJdbcSchema getSchema(String name) {
         List<String> l = new ArrayList<String>();
-        OdbcSchema schema = new OdbcSchema(name);
+        MPJdbcSchema schema = new MPJdbcSchema(name);
         return schema;
     }
 
-    public class OdbcSchema extends AbstractSchema {
+    public class MPJdbcSchema extends AbstractSchema {
 
         private Map<String, Integer> sub_schemas;
         private String currentSchema;
         private Set<String> tables;
 
-        public OdbcSchema(String name) {
+        public MPJdbcSchema(String name) {
             super(ImmutableList.<String> of(), name);
             /*currentSchema = MPJdbcCnxnManager.getClient(uri, clientOptions,
                     plugin).getCurrentSchema();
@@ -195,7 +217,7 @@ class MPJdbcClient {
                     .getTables(name);
         }
 
-        public OdbcSchema(List<String> parentSchemaPath, String name) {
+        public MPJdbcSchema(List<String> parentSchemaPath, String name) {
             super(parentSchemaPath, name);
             currentSchema = MPJdbcCnxnManager.getClient(uri, clientOptions,
                     plugin).getCurrentSchema();
@@ -210,7 +232,7 @@ class MPJdbcClient {
         @Override
         public String getTypeName() {
             // TODO Auto-generated method stub
-            return "odbc";
+            return plugName;
         }
 
         @Override
@@ -221,7 +243,7 @@ class MPJdbcClient {
             }
             Integer a = sub_schemas.get(name);
             if (a == 1) {
-                return new OdbcSchema(name);
+                return new MPJdbcSchema(name);
             }
             return null;
         }
@@ -232,7 +254,7 @@ class MPJdbcClient {
           String tableName = null;
           if(name.contains(".")) {
             String[] val = name.split("\\.");
-            OdbcSchema sub = (OdbcSchema) this.getSubSchema(val[0]);
+            MPJdbcSchema sub = (MPJdbcSchema) this.getSubSchema(val[0]);
             return sub.getTable(val[1]);
           }
           Iterator<String> iter = tables.iterator();
@@ -249,7 +271,7 @@ class MPJdbcClient {
             return null;
           }
           MPJdbcScanSpec spec = new MPJdbcScanSpec(this.name, tableName,"");
-          return new DynamicDrillTable(plugin, "odbc", spec);
+          return new DynamicDrillTable(plugin, plugName, spec);
         }
 
         @Override
