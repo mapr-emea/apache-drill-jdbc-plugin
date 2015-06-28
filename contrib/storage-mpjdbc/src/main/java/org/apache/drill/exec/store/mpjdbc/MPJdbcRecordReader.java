@@ -361,33 +361,67 @@ public class MPJdbcRecordReader extends AbstractRecordReader {
             break;
         }
         for (ValueVector vv : vectors) {
+
           String val = rec.getString(pos);
-          byte[] record = val.getBytes(Charsets.UTF_8);
+          byte[] record;
+
           if (vv.getClass().equals(NullableVarCharVector.class)) {
+
             NullableVarCharVector v = (NullableVarCharVector) vv;
-            v.getMutator().setSafe(counter, record, 0, record.length);
-            v.getMutator().setValueLengthSafe(counter, record.length);
+
+            if(rec.wasNull()) {
+              v.getMutator().setNull(counter);
+           } else {
+              record = val.getBytes(Charsets.UTF_8);
+              v.getMutator().setSafe(counter, record, 0, record.length);
+              v.getMutator().setValueLengthSafe(counter, record.length);
+           }
+
           } else if (vv.getClass().equals(VarCharVector.class)) {
+
+            record = val.getBytes(Charsets.UTF_8);
             VarCharVector v = (VarCharVector) vv;
             v.getMutator().setSafe(counter, record, 0, record.length);
             v.getMutator().setValueLengthSafe(counter, record.length);
+
           } else if (vv.getClass().equals(BigIntVector.class)) {
+
+            record = val.getBytes(Charsets.UTF_8);
             BigIntVector v = (BigIntVector) vv;
             v.getMutator().setSafe(counter, rec.getLong(pos));
+
           } else if (vv.getClass().equals(NullableBigIntVector.class)) {
-            NullableBigIntVector v = (NullableBigIntVector) vv;
-            v.getMutator().setSafe(counter, rec.getLong(pos));
+
+              NullableBigIntVector v = (NullableBigIntVector) vv;
+              if(rec.wasNull()) {
+                v.getMutator().setNull(counter);
+             } else {
+               record = val.getBytes(Charsets.UTF_8);
+               v.getMutator().setSafe(counter, rec.getLong(pos));
+             }
+
           } else if (vv.getClass().equals(IntVector.class)) {
+
+            record = val.getBytes(Charsets.UTF_8);
             IntVector v = (IntVector) vv;
             v.getMutator().setSafe(counter, rec.getInt(pos));
+
           } else if (vv.getClass().equals(NullableIntVector.class)) {
+
             NullableIntVector v = (NullableIntVector) vv;
-            v.getMutator().setSafe(counter, rec.getInt(pos));
+            if(rec.wasNull()) {
+              v.getMutator().setNull(counter);
+            } else {
+              v.getMutator().setSafe(counter, rec.getInt(pos));
+            }
           } else if (vv.getClass().equals(DateVector.class)) {
+
             DateVector v = (DateVector) vv;
             long dtime = DateTime.parse(val).toDate().getTime(); // DateTime.parse(val).toDateTime().getMillis();
             v.getMutator().setSafe(counter, dtime);
+
           } else if (vv.getClass().equals(NullableDateVector.class)) {
+
             NullableDateVector v = (NullableDateVector) vv;
             if (rec.wasNull()) {
               v.getMutator().setNull(counter);
@@ -395,16 +429,26 @@ public class MPJdbcRecordReader extends AbstractRecordReader {
               long dtime = DateTime.parse(val).toDate().getTime();
               v.getMutator().setSafe(counter, dtime);
             }
+
           } else if (vv.getClass().equals(Decimal38DenseVector.class)) {
+
             Decimal38DenseVector v = (Decimal38DenseVector) vv;
             java.math.BigDecimal d = rec.getBigDecimal(pos);
+
           } else if (vv.getClass().equals(NullableDecimal38DenseVector.class)) {
+
             NullableDecimal38DenseVector v = (NullableDecimal38DenseVector) vv;
             java.math.BigDecimal d = rec.getBigDecimal(pos);
+
           } else {
             NullableVarCharVector v = (NullableVarCharVector) vv;
-            v.getMutator().setSafe(counter, record, 0, record.length);
-            v.getMutator().setValueLengthSafe(counter, record.length);
+            if(rec.wasNull()) {
+              v.getMutator().setNull(counter);
+            } else {
+              record = val.getBytes(Charsets.UTF_8);
+              v.getMutator().setSafe(counter, record, 0, record.length);
+              v.getMutator().setValueLengthSafe(counter, record.length);
+            }
           }
           pos++;
         }
