@@ -1,14 +1,13 @@
 # apache-drill-jdbc-plugin
 A JDBC plugin for Apache Drill
 
-Download Apache Drill 0.9.
-Add the code to contrib and replace existing pom file with the pom
-file in this folder.
+Download Apache Drill 1.1 branch (from github)
+Add the code to contrib and replace existing pom file with the pom file in this folder.
 
-build with mvn.
-
+Build with mvn.
 To just build the package use notations similar to following:
-/Applications/apache-maven-3.2.5/bin/mvn clean install -pl contrib/storage-mpjdbc -DskipTests
+OSX: /Applications/apache-maven-3.2.5/bin/mvn clean install -pl contrib/storage-mpjdbc -DskipTests
+LINUX: /usr/local/apache-maven-3.3.3/bin/mvn clean install -pl contrib/storage-mpjdbc -DskipTests
 
 Take the jar in contrib/storage-mpjdbc/target and move it to jar folder of a drill dist. 
 Add your jdbc driver to same folder.
